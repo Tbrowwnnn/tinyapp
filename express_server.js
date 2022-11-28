@@ -2,6 +2,19 @@ const express = require("express");
 const app = express();
 const PORT = 8080; //default port 8080
 
+function generateRandomString(){
+
+    return Math.floor((1 + Math.random()) * 0x1000000).toString(16).substring(1);
+  
+}
+
+app.use(express.urlencoded({extended: true}));
+
+app.post("/urls", (req, res) => {
+  console.log(req.body);
+  res.send(generateRandomString());
+})
+
 app.set("view engine", "ejs");
 
 const urlDatabase = {
@@ -13,6 +26,15 @@ app.get("/urls", (req, res) => {
   const templateVars = { urls: urlDatabase};
   res.render("urls_index", templateVars);
 });
+
+app.get("/urls/new", (req, res) => {
+  res.render("urls_new");
+})
+
+app.get("/urls/:id", (req, res) => {
+  const templateVars = {id: req.params.id, longURL: urlDatabase[req.params.id]};
+  res.render("urls_show", templateVars);
+})
 
 app.get("/", (req, res) => {
   res.send("Hello!");
