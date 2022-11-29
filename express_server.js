@@ -11,8 +11,12 @@ function generateRandomString(){
 app.use(express.urlencoded({extended: true}));
 
 app.post("/urls", (req, res) => {
-  console.log(req.body);
-  res.send(generateRandomString());
+  // console.log(req.body);
+  let tinyVar = generateRandomString();
+
+  urlDatabase[tinyVar] = req.body.longURL;
+  res.redirect(`/urls/${tinyVar}`)
+  console.log(urlDatabase);
 })
 
 app.set("view engine", "ejs");
@@ -34,6 +38,12 @@ app.get("/urls/new", (req, res) => {
 app.get("/urls/:id", (req, res) => {
   const templateVars = {id: req.params.id, longURL: urlDatabase[req.params.id]};
   res.render("urls_show", templateVars);
+})
+
+app.get(`/u/:id`, (req, res) => {
+  const longURL = urlDatabase[req.params.id]
+  res.redirect(longURL);
+
 })
 
 app.get("/", (req, res) => {
