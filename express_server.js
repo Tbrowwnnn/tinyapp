@@ -13,6 +13,27 @@ function generateRandomString(){
 app.use(express.urlencoded({extended: true}));
 app.use(cookieParser());
 
+const users = {
+  userRandomID: {
+    id: "userRandomID",
+    email: "user@example.com", 
+    password: "purple-monkey-dinosaur", 
+  },
+  user2RandomID: {
+    id: "user2RandomID",
+    email: "user2@example.com",
+    password: "dishwasher-funk",
+  },
+};
+
+app.post("/register", (req, res) => {
+  let randomid = generateRandomString();
+  res.cookie("user_ID", `${randomid}`)
+  users[randomid] = {id: randomid, email: req.body.email, password: req.body.password};
+  res.redirect("/urls");
+  console.log(users);
+})
+
 app.post("/urls", (req, res) => {
   // console.log(req.body);
   let tinyVar = generateRandomString();
@@ -45,7 +66,7 @@ app.post("/urls/login", (req, res) => {
 })
 
 app.post("/urls/logout", (req, res) => {
-  res.clearCookie("username");
+  res.clearCookie("user_ID");
   res.redirect("/urls");
 })
 
@@ -55,26 +76,33 @@ const urlDatabase = {
 };
 
 app.get("/register", (req, res) => {
-  const templateVars = {usernames: req.cookies.username}
+  let cookieName = req.cookies.user_ID;
+  const userID = users[cookieName]
+  const templateVars = { userID}
+  console.log(users.cookieName)
+  console.log(users)
 
   res.render("urls_register", templateVars);
 })
 
 app.get("/urls", (req, res) => {
-  const templateVars = { urls: urlDatabase,
-    usernames: req.cookies.username};
+  let cookieName = req.cookies.user_ID;
+  const userID = users[cookieName]
+  const templateVars = { urls: urlDatabase, userID};
   res.render("urls_index", templateVars);
 });
 
 app.get("/urls/new", (req, res) => {
-  const templateVars = { urls: urlDatabase,
-    usernames: req.cookies.username};
+  let cookieName = req.cookies.user_ID;
+  const userID = users[cookieName]
+  const templateVars = { urls: urlDatabase, userID};
   res.render("urls_new", templateVars);
 })
 
 app.get("/urls/:id", (req, res) => {
-  const templateVars = {id: req.params.id, longURL: urlDatabase[req.params.id],
-    usernames: req.cookies.username};
+  let cookieName = req.cookies.user_ID;
+  const userID = users[cookieName]
+  const templateVars = {id: req.params.id, longURL: urlDatabase[req.params.id],userID};
   res.render("urls_show", templateVars);
 })
 
