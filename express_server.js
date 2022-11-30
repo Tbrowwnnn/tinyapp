@@ -26,11 +26,27 @@ const users = {
   },
 };
 
+const usernameAndPasswordChecker = function(ObjDataBase, comparable, email, id){
+  let matched = '';
+
+  for(let compare in ObjDataBase){
+    if(ObjDataBase[compare][email] === comparable){
+      matched = ObjDataBase[compare][id];
+    }
+  }return matched;
+}
+
 app.post("/register", (req, res) => {
-  let randomid = generateRandomString();
+  
+  if(usernameAndPasswordChecker(users, req.body.email, "email","id") !== '' || req.body.email === "" || req.body.password === ""){
+    res.status(400)
+    res.send('Invalid username or password');
+  }
+  else
+ { let randomid = generateRandomString();
   res.cookie("user_ID", `${randomid}`)
   users[randomid] = {id: randomid, email: req.body.email, password: req.body.password};
-  res.redirect("/urls");
+  res.redirect("/urls");}
   console.log(users);
 })
 
@@ -60,14 +76,26 @@ app.post("/urls/:id/delete", (req, res) => {
 
 app.set("view engine", "ejs");
 
-app.post("/urls/login", (req, res) => {
-  res.cookie("username",`${req.body.username}`)
-  res.redirect("/urls");
+app.post("/login", (req, res) => {
+  if(usernameAndPasswordChecker(users, req.body.email, "email","id") === '') {
+    res.status(403)
+    res.send("Username not found")
+  }
+  if(usernameAndPasswordChecker(users, req.body.email, "email","id") !== ''){
+    if(usernameAndPasswordChecker(users, req.body.password, "password","id") === ''){
+      res.status(403)
+      res.send("invalid password")
+    }else { 
+      res.cookie("user_ID", `${usernameAndPasswordChecker(users, req.body.password, "password","id")}`)
+      res.redirect("/urls");}
+      // console.log(users[id]);
+  }
+  
 })
 
 app.post("/urls/logout", (req, res) => {
   res.clearCookie("user_ID");
-  res.redirect("/urls");
+  res.redirect("/login");
 })
 
 const urlDatabase = {
@@ -78,7 +106,7 @@ const urlDatabase = {
 app.get("/register", (req, res) => {
   let cookieName = req.cookies.user_ID;
   const userID = users[cookieName]
-  const templateVars = { userID}
+  const templateVars = {userID}
   console.log(users.cookieName)
   console.log(users)
 
@@ -97,6 +125,13 @@ app.get("/urls/new", (req, res) => {
   const userID = users[cookieName]
   const templateVars = { urls: urlDatabase, userID};
   res.render("urls_new", templateVars);
+})
+app.get("/login", (req, res) => {
+  let cookieName = req.cookies.user_ID;
+  const userID = users[cookieName]
+  const templateVars = { urls: urlDatabase, userID};
+
+  res.render("urls_login", templateVars);
 })
 
 app.get("/urls/:id", (req, res) => {
