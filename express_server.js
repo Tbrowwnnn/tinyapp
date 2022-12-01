@@ -2,6 +2,7 @@ const express = require("express");
 const cookieParser = require('cookie-parser')
 const app = express();
 const PORT = 8080; //default port 8080
+const bcrypt = require("bcryptjs");
 
 
 function generateRandomString(){
@@ -36,6 +37,16 @@ const usernameAndPasswordChecker = function(ObjDataBase, comparable, email, id){
   }return matched;
 }
 
+const PasswordChecker = function(ObjDataBase, comparable, pass){
+  let matched = false;
+
+  for(compare in ObjDataBase){
+    if(bcrypt.compareSync(comparable, ObjDataBase[compare][pass])){
+      matched = true;
+    }
+  }return matched;
+}
+
 const urlsForUser = function(obj, id, userKey){
   filteredUrl = {};
 
@@ -45,17 +56,21 @@ const urlsForUser = function(obj, id, userKey){
     }
   }return filteredUrl;
 }
-
+//This post handles the registration information
 app.post("/register", (req, res) => {
-  
+
   if(usernameAndPasswordChecker(users, req.body.email, "email","id") !== '' || req.body.email === "" || req.body.password === ""){
     res.status(400)
     res.send('Invalid username or password');
   }
   else
  { let randomid = generateRandomString();
+  const password = req.body.password;
+  const hashedPassword = bcrypt.hashSync(password, 10);
+
+
   res.cookie("user_ID", `${randomid}`)
-  users[randomid] = {id: randomid, email: req.body.email, password: req.body.password};
+  users[randomid] = {id: randomid, email: req.body.email, password: hashedPassword};
   res.redirect("/urls");}
   console.log(users);
 })
@@ -107,25 +122,30 @@ app.post("/urls/:id/delete", (req, res) => {
 
 app.set("view engine", "ejs");
 
+//This deals with logging in
 app.post("/login", (req, res) => {
+
+  const password = req.body.password;
+  const hashedPassword = bcrypt.hashSync(password, 10);
+
   const emailCorrect = usernameAndPasswordChecker(users, req.body.email, "email","id")
-  const passCorrect = usernameAndPasswordChecker(users, req.body.password, "password","id")
+  // const passCorrect = usernameAndPasswordChecker(users, req.body.password, "password","id")
+  const passCorrect = PasswordChecker(users, req.body.password, "password")
   
-  
+  console.log("users",)
   if( emailCorrect === '') {
     res.status(403)
     res.send("Username not found")
   }
   if(emailCorrect !== ''){
-    if(passCorrect === ''){
+    if(!passCorrect){
       res.status(403)
       res.send("invalid password")
     }else { 
-      res.cookie("user_ID", `${usernameAndPasswordChecker(users, req.body.password, "password","id")}`)
+      res.cookie("user_ID", `${usernameAndPasswordChecker(users, req.body.email, "email","id")}`)
       res.redirect("/urls");}
       // console.log(users[id]);
   }
-  
 })
 
 app.post("/urls/logout", (req, res) => {
