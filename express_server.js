@@ -14,13 +14,13 @@ app.use(express.urlencoded({extended: true}));
 app.use(cookieParser());
 
 const users = {
-  userRandomID: {
-    id: "userRandomID",
+  "6030f2": {
+    id: "6030f2",
     email: "user@example.com", 
     password: "purple-monkey-dinosaur", 
   },
-  user2RandomID: {
-    id: "user2RandomID",
+  "7eleven": {
+    id: "7eleven",
     email: "user2@example.com",
     password: "dishwasher-funk",
   },
@@ -29,11 +29,21 @@ const users = {
 const usernameAndPasswordChecker = function(ObjDataBase, comparable, email, id){
   let matched = '';
 
-  for(let compare in ObjDataBase){
+  for(compare in ObjDataBase){
     if(ObjDataBase[compare][email] === comparable){
       matched = ObjDataBase[compare][id];
     }
   }return matched;
+}
+
+const urlsForUser = function(obj, id, userKey){
+  filteredUrl = {};
+
+  for(matching in obj){
+    if(id === obj[matching][userKey]){
+      filteredUrl[matching] = obj[matching];
+    }
+  }return filteredUrl;
 }
 
 app.post("/register", (req, res) => {
@@ -50,39 +60,64 @@ app.post("/register", (req, res) => {
   console.log(users);
 })
 
+//This post adds both longURL, tinyURL, and cookie ID to the URLDatabase 
 app.post("/urls", (req, res) => {
   // console.log(req.body);
   let tinyVar = generateRandomString();
 
-  urlDatabase[tinyVar] = req.body.longURL;
+  urlDatabase[tinyVar] = {longURL: req.body.longURL, userID: req.cookies.user_ID};
   res.redirect(`/urls/${tinyVar}`)
 })
 
+//This edits entries in the URL database
 app.post("/urls/:id/edit", (req, res) => {
+  let cookieName = req.cookies.user_ID;
+  const userID = users[cookieName]
+  const matchy = req.params.id
 
-  urlDatabase[req.params.id] = req.body.longURL;
-  res.redirect("/urls");
+  if(!filteredUrl[matchy]){
+    res.status(400)
+    
+    res.send("you do not have permission to delete this file")
+  }
+  else
+
+  {urlDatabase[req.params.id].longURL = req.body.longURL;
+  res.redirect("/urls")}
 })
 
+//This deletes entries from URL database
 app.post("/urls/:id/delete", (req, res) => {
-  delete urlDatabase[req.params.id]
-  res.redirect("/urls");
-})
+  let cookieName = req.cookies.user_ID;
+  const userID = users[cookieName]
+  const matchy = req.params.id
+  
 
-app.post("/urls/:id/delete", (req, res) => {
+  const filteredUrl = urlsForUser(urlDatabase, cookieName, "userID")
+  
+  if(!filteredUrl[matchy]){
+    res.status(400)
+    
+    res.send("you do not have permission to delete this file")
+  }else{
+
   delete urlDatabase[req.params.id]
-  res.redirect("/urls");
+  res.redirect("/urls");}
 })
 
 app.set("view engine", "ejs");
 
 app.post("/login", (req, res) => {
-  if(usernameAndPasswordChecker(users, req.body.email, "email","id") === '') {
+  const emailCorrect = usernameAndPasswordChecker(users, req.body.email, "email","id")
+  const passCorrect = usernameAndPasswordChecker(users, req.body.password, "password","id")
+  
+  
+  if( emailCorrect === '') {
     res.status(403)
     res.send("Username not found")
   }
-  if(usernameAndPasswordChecker(users, req.body.email, "email","id") !== ''){
-    if(usernameAndPasswordChecker(users, req.body.password, "password","id") === ''){
+  if(emailCorrect !== ''){
+    if(passCorrect === ''){
       res.status(403)
       res.send("invalid password")
     }else { 
@@ -98,11 +133,23 @@ app.post("/urls/logout", (req, res) => {
   res.redirect("/login");
 })
 
-const urlDatabase = {
-  "b2xVn2": "http://www.lighthouselabs.ca",
-  "9sm5xK": "http://www.google.com"
-};
+// const urlDatabase = {
+//   "b2xVn2": "http://www.lighthouselabs.ca",
+//   "9sm5xK": "http://www.google.com"
+// };
 
+const urlDatabase = {
+  "b2xVn2": {
+    longURL: "http://www.lighthouselabs.ca",
+    userID: "7eleven"
+  },
+  "9sm5xK": {
+    longURL: "http://www.google.com",
+    userID: "6030f2"
+  },
+  '03ceb0': { longURL: 'holy cow', userID: '6030f2' }
+}
+// console.log(urlsForUser(urlDatabase, "7eleven", "userID" ))
 app.get("/register", (req, res) => {
   let cookieName = req.cookies.user_ID;
   const userID = users[cookieName]
@@ -116,16 +163,25 @@ app.get("/register", (req, res) => {
 app.get("/urls", (req, res) => {
   let cookieName = req.cookies.user_ID;
   const userID = users[cookieName]
-  const templateVars = { urls: urlDatabase, userID};
-  res.render("urls_index", templateVars);
+  const filteredUrl = urlsForUser(urlDatabase, cookieName, "userID") 
+  console.log("userID", cookieName)
+  if(!cookieName){
+    res.redirect("/login")}
+    else
+  {const templateVars = { urls: filteredUrl, userID};
+  res.render("urls_index", templateVars)};
 });
 
 app.get("/urls/new", (req, res) => {
   let cookieName = req.cookies.user_ID;
   const userID = users[cookieName]
-  const templateVars = { urls: urlDatabase, userID};
-  res.render("urls_new", templateVars);
+  if(!cookieName) {
+    res.redirect("/login")
+  }else
+  {const templateVars = { urls: urlDatabase, userID};
+  res.render("urls_new", templateVars);}
 })
+
 app.get("/login", (req, res) => {
   let cookieName = req.cookies.user_ID;
   const userID = users[cookieName]
@@ -137,12 +193,25 @@ app.get("/login", (req, res) => {
 app.get("/urls/:id", (req, res) => {
   let cookieName = req.cookies.user_ID;
   const userID = users[cookieName]
-  const templateVars = {id: req.params.id, longURL: urlDatabase[req.params.id],userID};
-  res.render("urls_show", templateVars);
-})
+  const matchy = req.params.id
+  const filteredUrl = urlsForUser(urlDatabase, cookieName, "userID")
+  
+  if(!filteredUrl[matchy]){
+    res.status(400)
+    res.send("you do not have permission to access this file")
+  }
+  if(!cookieName) {
+    res.redirect("/login")}
+  else{if(!urlDatabase[req.params.id]){
+    res.status(403);
+    res.send("page does not exist");
+  }else {const templateVars = {id: req.params.id, longURL: urlDatabase[req.params.id].longURL, userID};
+  console.log(urlDatabase)
+  res.render("urls_show", templateVars);}
+}})
 
 app.get(`/u/:id`, (req, res) => {
-  const longURL = urlDatabase[req.params.id]
+  const longURL = urlDatabase[req.params.id].longURL
   res.redirect(longURL);
 })
 
