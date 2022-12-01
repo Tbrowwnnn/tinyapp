@@ -1,8 +1,9 @@
 const express = require("express");
-const cookieParser = require('cookie-parser')
+const cookieSession = require('cookie-session')
 const app = express();
 const PORT = 8080; //default port 8080
 const bcrypt = require("bcryptjs");
+const {usernameAndPasswordChecker, PasswordChecker, urlsForUser} = require('./helper')
 
 
 function generateRandomString(){
@@ -12,7 +13,11 @@ function generateRandomString(){
 }
 
 app.use(express.urlencoded({extended: true}));
-app.use(cookieParser());
+app.use(cookieSession({
+  name: 'session',
+  keys: ['keynum1', 'keynum2']
+
+}));
 
 const users = {
   "6030f2": {
@@ -27,35 +32,6 @@ const users = {
   },
 };
 
-const usernameAndPasswordChecker = function(ObjDataBase, comparable, email, id){
-  let matched = '';
-
-  for(compare in ObjDataBase){
-    if(ObjDataBase[compare][email] === comparable){
-      matched = ObjDataBase[compare][id];
-    }
-  }return matched;
-}
-
-const PasswordChecker = function(ObjDataBase, comparable, pass){
-  let matched = false;
-
-  for(compare in ObjDataBase){
-    if(bcrypt.compareSync(comparable, ObjDataBase[compare][pass])){
-      matched = true;
-    }
-  }return matched;
-}
-
-const urlsForUser = function(obj, id, userKey){
-  filteredUrl = {};
-
-  for(matching in obj){
-    if(id === obj[matching][userKey]){
-      filteredUrl[matching] = obj[matching];
-    }
-  }return filteredUrl;
-}
 //This post handles the registration information
 app.post("/register", (req, res) => {
 
@@ -69,7 +45,7 @@ app.post("/register", (req, res) => {
   const hashedPassword = bcrypt.hashSync(password, 10);
 
 
-  res.cookie("user_ID", `${randomid}`)
+  req.session.user_ID = randomid;
   users[randomid] = {id: randomid, email: req.body.email, password: hashedPassword};
   res.redirect("/urls");}
   console.log(users);
@@ -80,13 +56,13 @@ app.post("/urls", (req, res) => {
   // console.log(req.body);
   let tinyVar = generateRandomString();
 
-  urlDatabase[tinyVar] = {longURL: req.body.longURL, userID: req.cookies.user_ID};
+  urlDatabase[tinyVar] = {longURL: req.body.longURL, userID: req.session.user_ID};
   res.redirect(`/urls/${tinyVar}`)
 })
 
 //This edits entries in the URL database
 app.post("/urls/:id/edit", (req, res) => {
-  let cookieName = req.cookies.user_ID;
+  let cookieName = req.session.user_ID;
   const userID = users[cookieName]
   const matchy = req.params.id
 
@@ -103,7 +79,7 @@ app.post("/urls/:id/edit", (req, res) => {
 
 //This deletes entries from URL database
 app.post("/urls/:id/delete", (req, res) => {
-  let cookieName = req.cookies.user_ID;
+  let cookieName = req.session.user_ID;
   const userID = users[cookieName]
   const matchy = req.params.id
   
@@ -142,14 +118,15 @@ app.post("/login", (req, res) => {
       res.status(403)
       res.send("invalid password")
     }else { 
-      res.cookie("user_ID", `${usernameAndPasswordChecker(users, req.body.email, "email","id")}`)
+      req.session.user_ID = `${usernameAndPasswordChecker(users, req.body.email, "email","id")}`
       res.redirect("/urls");}
       // console.log(users[id]);
   }
 })
 
 app.post("/urls/logout", (req, res) => {
-  res.clearCookie("user_ID");
+  // res.clearCookie("user_ID");
+  req.session = null;
   res.redirect("/login");
 })
 
@@ -171,7 +148,7 @@ const urlDatabase = {
 }
 // console.log(urlsForUser(urlDatabase, "7eleven", "userID" ))
 app.get("/register", (req, res) => {
-  let cookieName = req.cookies.user_ID;
+  let cookieName = req.session.user_ID;
   const userID = users[cookieName]
   const templateVars = {userID}
   console.log(users.cookieName)
@@ -181,7 +158,7 @@ app.get("/register", (req, res) => {
 })
 
 app.get("/urls", (req, res) => {
-  let cookieName = req.cookies.user_ID;
+  let cookieName = req.session.user_ID;
   const userID = users[cookieName]
   const filteredUrl = urlsForUser(urlDatabase, cookieName, "userID") 
   console.log("userID", cookieName)
@@ -193,7 +170,7 @@ app.get("/urls", (req, res) => {
 });
 
 app.get("/urls/new", (req, res) => {
-  let cookieName = req.cookies.user_ID;
+  let cookieName = req.session.user_ID;
   const userID = users[cookieName]
   if(!cookieName) {
     res.redirect("/login")
@@ -203,7 +180,7 @@ app.get("/urls/new", (req, res) => {
 })
 
 app.get("/login", (req, res) => {
-  let cookieName = req.cookies.user_ID;
+  let cookieName = req.session.user_ID;
   const userID = users[cookieName]
   const templateVars = { urls: urlDatabase, userID};
 
@@ -211,7 +188,7 @@ app.get("/login", (req, res) => {
 })
 
 app.get("/urls/:id", (req, res) => {
-  let cookieName = req.cookies.user_ID;
+  let cookieName = req.session.user_ID;
   const userID = users[cookieName]
   const matchy = req.params.id
   const filteredUrl = urlsForUser(urlDatabase, cookieName, "userID")
